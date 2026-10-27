@@ -1,6 +1,6 @@
 # OAuth Atlas
 
-OAuth Atlas helps developers answer the work hidden behind “connect your app”: which OAuth path to use, what to configure, what might block launch, how much effort is known, and what approval is still uncertain. The experience combines a 118-app snapshot of Composio managed OAuth discovery with three detailed source-reviewed guides and live research for unfamiliar apps. Each directory entry is labeled separately from an actually researched guide.
+OAuth Atlas helps developers answer the work hidden behind â€œconnect your appâ€: which OAuth path to use, what to configure, what might block launch, how much effort is known, and what approval is still uncertain. The experience combines a 118-app snapshot of Composio managed OAuth discovery with five detailed source-reviewed guides and live research for unfamiliar apps. Each directory entry is labeled separately from an actually researched guide.
 
 ## Run locally
 
@@ -29,11 +29,11 @@ Never use `VITE_` prefixes for private keys. Do not paste credentials into sourc
 - React, TypeScript, Vite, Tailwind, React Router, Lucide icons, and Zod.
 - `/api/guides` validates a name or public HTTP(S) URL, rate-limits the local function instance, and streams real status events.
 - Tavily searches provider OAuth requirements and Composio managed-auth context. Returned snippets and URLs are treated as untrusted candidate evidence.
-- Gemini receives a bounded set of search results and returns JSON structured to the guide schema. Zod validates the output, and the backend rejects citations that do not exactly match the research result IDs or that point to low-relevance results.
+- Gemini receives a bounded set of search results and returns JSON structured to the guide schema. Zod validates the output, and the backend rejects citations that do not exactly match the research result IDs or that point to low-relevance results. Temporary Gemini 5xx responses are retried twice; if Gemini remains unavailable but relevant Tavily sources exist, the app returns a clearly labeled conservative source-first fallback with unknowns instead of inventing app-specific requirements.
 - The generated guide is returned to the browser and embedded in the share URL fragment. The fragment is not sent to the web server, so the link works without a database and can be opened by anyone who has it.
 - A local copy supports reopening guides in the same browser. Checklist progress is also stored locally and is not shared.
 
-Research results are not proof of source ownership. Generated source entries are labelled as retrieved search results; verify provider ownership and open the source before using the guidance. The model is explicitly asked not to invent scopes, review times, source URLs, or tests. An unsupported Composio path falls back to “Integration path requires confirmation.”
+Research results are not proof of source ownership. Generated source entries are labelled as retrieved search results; verify provider ownership and open the source before using the guidance. The model is explicitly asked not to invent scopes, review times, source URLs, or tests. An unsupported Composio path falls back to â€œIntegration path requires confirmation.â€
 
 ## Share links
 
@@ -57,18 +57,20 @@ The source repository is [Shashank9535/apm_composio_outh-_assignment-](https://g
 
 ## First-principles product decision
 
-An app connection has two jobs: the developer configures a provider integration, and each end user chooses whether to grant access. Composio managed OAuth can remove app registration and credential handling for supported schemes, but it does not remove the user's consent step or automatically meet branded-consent, custom-scope, quota, or review needs. OAuth Atlas therefore starts with “Does managed auth fit this connection?” and routes the builder into a source-backed setup path only when needed.
+An app connection has two jobs: the developer configures a provider integration, and each end user chooses whether to grant access. Composio managed OAuth can remove app registration and credential handling for supported schemes, but it does not remove the user's consent step or automatically meet branded-consent, custom-scope, quota, or review needs. OAuth Atlas therefore starts with â€œDoes managed auth fit this connection?â€ and routes the builder into a source-backed setup path only when needed.
 
-The directory is a dated discovery snapshot from Composio's managed-auth page, not 118 complete setup guides. The live page reported 118 managed-OAuth entries when checked on 2026-10-28. All 118 catalog entries map to Composio toolkit slugs and logo endpoints; logos are served by Composio and may fall back to a letter mark if an image is unavailable. This deliberately excludes Composio toolkits that use only API keys, bearer tokens, Basic auth, or no authentication. Three apps (GitHub, Slack, and Google) have detailed reviewed guides; other listed apps can be sent through live research. On the guide page, a private in-browser milestone trail helps the builder track setup progress. It does not award points for skipping consent, scope review, or provider approval. The source page's directory changes over time, so verify current auth schemes and exact scopes in Composio before launch.
+The directory is a dated discovery snapshot from Composio's managed-auth page, not 118 complete setup guides. The live page reported 118 managed-OAuth entries when checked on 2026-10-28. All 118 catalog entries map to Composio toolkit slugs and logo endpoints; logos are served by Composio and may fall back to a letter mark if an image is unavailable. This deliberately excludes Composio toolkits that use only API keys, bearer tokens, Basic auth, or no authentication. Five apps (GitHub, Slack, Google, Airtable, and Asana) have detailed reviewed guides; other listed apps can be sent through live research. On the guide page, a private in-browser milestone trail helps the builder track setup progress. It does not award points for skipping consent, scope review, or provider approval. The source page's directory changes over time, so verify current auth schemes and exact scopes in Composio before launch.
 ## Product decisions and evidence
 
 The core problem is uncertainty before the OAuth build begins. The guide places the integration path, hands-on effort, external waiting, blockers, next actions, and evidence before lengthy implementation detail. Setup time remains unknown unless a source supports it or an estimate is explicitly identified as an inference. Provider approval timing is unknown unless documentation describes a relevant review path.
 
-The GitHub, Slack, and Google starter guides link directly to official sources and are labeled documentation-reviewed. No provider console was accessed; no OAuth app or credentials were created; no OAuth flow or provider approval was tested. Provider setup requirements were checked against these official documentation sources:
+The GitHub, Slack, Google, Airtable, and Asana starter guides link directly to official sources and are labeled documentation-reviewed. No provider console was accessed; no OAuth app or credentials were created; no OAuth flow or provider approval was tested. Provider setup requirements were checked against these official documentation sources:
 
 - Composio: [Managed Auth](https://docs.composio.dev/toolkits/managed-auth), [managed vs custom apps](https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app), and [toolkit directory](https://composio.dev/toolkits).
 - GitHub: [Create an OAuth app](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app), [Authorize OAuth apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps), and [Organization app approval](https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/approving-oauth-apps-for-your-organization).
 - Slack: [Install with OAuth](https://docs.slack.dev/authentication/installing-with-oauth/), [App distribution](https://api.slack.com/docs/slack-apps-mgmt), and [Marketplace app review](https://api.slack.com/directory/app-review-guide).
+- Airtable: [Builder Hub setup](https://support.airtable.com/articles/9362950318-using-builder-hub-in-airtable), [OAuth overview](https://support.airtable.com/articles/6811769763-third-party-integrations-via-oauth-overview), and [refresh-token troubleshooting](https://support.airtable.com/articles/6412360049-troubleshooting-disconnected-oauth-integrations).
+- Asana: [OAuth setup](https://developers.asana.com/docs/oauth), [OAuth scopes](https://developers.asana.com/docs/oauth-scopes), [Share your app](https://developers.asana.com/docs/share-your-app), and [Publish your app](https://developers.asana.com/docs/publish-your-app).
 - Google: [OAuth overview](https://developers.google.com/identity/protocols/oauth2), [scope categories](https://developers.google.com/identity/protocols/oauth2/scopes), [sensitive-scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification), and [OAuth policies](https://developers.google.com/identity/protocols/oauth2/policies).
 - Service contracts: [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search), [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output), [Gemini models](https://ai.google.dev/gemini-api/docs/models), and [Vercel Node.js functions](https://vercel.com/docs/functions/runtimes/node-js).
 
@@ -84,7 +86,7 @@ The GitHub, Slack, and Google starter guides link directly to official sources a
 ## Demonstration flow
 
 1. Open the homepage, then search GitHub under Explore.
-2. Inspect a provider guide’s evidence, effort, approval dependency, and blocker section.
+2. Inspect a provider guideâ€™s evidence, effort, approval dependency, and blocker section.
 3. Submit an unfamiliar public app name or website under Generate.
 4. Watch server-reported research stages; if evidence or credentials are insufficient, read the explicit error rather than a fabricated guide.
 5. Copy the generated share link and open it in another browser to confirm that the guide travels with the link.
