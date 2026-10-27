@@ -27,14 +27,6 @@ function localApi(): Plugin {
             res.end();
             return;
           }
-          if (req.method === 'GET' && url.pathname !== '/') {
-            const id = decodeURIComponent(url.pathname.slice(1));
-            const result = await mod.getGuide(id);
-            res.statusCode = result.status;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(result.body));
-            return;
-          }
           next();
         } catch (error) {
           if (res.headersSent) { res.write(`data: ${JSON.stringify({ type: 'error', code: 'SERVER_ERROR', message: 'The research request failed. Check the server configuration and try again.' })}\n\n`); res.end(); return; }
@@ -50,7 +42,7 @@ function localApi(): Plugin {
 const root = dirname(fileURLToPath(import.meta.url));
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root, '');
-  for (const key of ['TAVILY_API_KEY','GEMINI_API_KEY','GEMINI_MODEL','SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SECRET_KEY','SUPABASE_SERVICE_ROLE_KEY']) {
+  for (const key of ['TAVILY_API_KEY','GEMINI_API_KEY','GEMINI_MODEL']) {
     if (!process.env[key] && env[key]) process.env[key] = env[key];
   }
   return { plugins: [react(), tailwindcss(), localApi()], test: { environment: 'node' } };
