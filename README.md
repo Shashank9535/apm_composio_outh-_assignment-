@@ -1,93 +1,161 @@
 # OAuth Atlas
 
-OAuth Atlas helps developers answer the work hidden behind â€œconnect your appâ€: which OAuth path to use, what to configure, what might block launch, how much effort is known, and what approval is still uncertain. The experience combines a 118-app snapshot of Composio managed OAuth discovery with five detailed source-reviewed guides and live research for unfamiliar apps. Each directory entry is labeled separately from an actually researched guide.
+**Know what it takes to launch an OAuth integration before you start building it.**
 
-## Run locally
+- Live demo: https://oauth-atlas-phi.vercel.app/
+- Source: https://github.com/Shashank9535/apm_composio_outh-_assignment-
+- Author: Shashank Hiremath (APM Integrations take-home)
 
-Requirements: Node.js 20+ and npm or pnpm.
+---
 
-```sh
+## 1. The problem
+
+A developer building an AI agent wants their users to connect an app (GitHub, Slack, Google, ...). Before launch they may need to create an OAuth app with the provider and, sometimes, get it reviewed. Today they piece this together from scattered docs and can't easily tell whether setup is an hour of work or weeks of waiting.
+
+Two things get mixed up in that confusion:
+
+| Layer | Who does it | Happens |
+|---|---|---|
+| **Provider OAuth app** (client ID/secret, redirect URIs, scopes, sometimes review) | The developer, once per integration | At build time |
+| **User connection** (consent screen, token) | Each end user | At runtime |
+
+Composio **managed OAuth** can remove the first layer for supported apps. It does not remove user consent, and it does not automatically cover branded consent screens, custom scopes, quotas, or provider review. So the first question OAuth Atlas asks is: *does managed auth fit this connection?* A custom OAuth app is the fallback, not the default.
+
+## 2. What it does
+
+1. **Directory.** A searchable snapshot of **118 Composio managed-OAuth entries**, checked on 2026-10-28. This is a discovery list, **not** 118 guides. Each entry is labelled separately from a researched guide.
+2. **Curated guides (5).** GitHub, Slack, Google, Airtable, Asana. Each guide leads with:
+   - recommended integration path (managed vs custom)
+   - **hands-on effort** vs **external waiting** (kept separate on purpose)
+   - blockers and approval dependencies
+   - next actions
+   - what the agent can do vs where you take over
+   - linked sources and a verification status
+3. **Live generation.** Enter an app name or public website URL. The backend researches it and returns a structured, shareable guide.
+
+## 3. How live generation works
+
+```
+name / URL -> validate input -> Tavily search -> Gemini (structured JSON)
+           -> Zod schema check -> citation check -> guide + share link
+```
+
+- **Input checks:** only public HTTP(S) URLs. Localhost, private IPs, credentials in URLs, and internal hostnames are rejected. The server never fetches user-supplied URLs; it only searches the string.
+- **Research:** Tavily searches provider OAuth requirements and Composio managed-auth context. Results are treated as *untrusted candidate evidence*.
+- **Generation:** Gemini gets a bounded set of results and must return JSON matching the guide schema. It is told not to invent scopes, review times, URLs, or tests.
+- **Validation:** Zod validates the output. The backend rejects citations that don't exactly match retrieved result IDs or that point to low-relevance results.
+- **Failure behaviour:** Gemini 5xx errors are retried twice. If Gemini stays down but relevant sources exist, the app returns a clearly labelled **source-first fallback** with explicit unknowns. If evidence is insufficient, you get an error, not a made-up guide.
+- **Sharing:** the guide is base64url-encoded in the URL fragment (`#guide=...`). Fragments are never sent to the server, so no database is needed.
+
+Stack: React, TypeScript, Vite, Tailwind, React Router, Zod, Vercel serverless function (`/api/guides`).
+
+## 4. Key decisions
+
+| Decision | Why |
+|---|---|
+| Managed OAuth first | Avoids app registration and credential handling when it fits; custom setup only when requirements demand it. |
+| Separate effort from waiting | "30 minutes of config + unknown review time" is more useful than one blended estimate. |
+| "Unknown" is a valid answer | Timelines and scopes are only stated when a source supports them. Inferences are labelled as inferences. |
+| Be explicit about agent limits | Agents can research, organise, and flag blockers. They can't create accounts, hold your credentials, click consent, or pass provider review. |
+| Depth over breadth | 5 verified-quality guides beat 100 unchecked ones. The directory is labelled as a snapshot so it doesn't overclaim. |
+
+## 5. What the agent does vs. what you do
+
+| Step | Agent | You |
+|---|---|---|
+| Find official docs and requirements | Yes | Spot-check sources |
+| Pick managed vs custom path | Recommends | Confirm against your needs (branding, scopes, quotas) |
+| List scopes, redirect URIs, blockers | Drafts from sources | Verify in the provider console |
+| Create the provider OAuth app | **No** | Yes |
+| Store client secret / credentials | **No** | Yes (server-side only) |
+| User consent | **No** | Each end user |
+| Provider review / verification | **No** | You submit and wait |
+
+## 6. Evidence: what was tested and what wasn't
+
+> Fill in the TODO rows before submitting. Do not leave claims here that you haven't actually done.
+
+### Documentation review (done)
+
+The five curated guides were checked against official documentation (links in Section 9). **No provider console was accessed and no OAuth flow was run for these guides** unless a row below says otherwise.
+
+### Verification log
+
+| # | Claim in guide | How checked | Result | Date |
+|---|---|---|---|---|
+| 1 | TODO (e.g. GitHub OAuth app needs a callback URL at creation) | TODO: created a real GitHub OAuth app | TODO: confirmed / corrected / unverifiable | TODO |
+| 2 | TODO (e.g. Slack app requires redirect URL configured before install) | TODO: created a Slack app | TODO | TODO |
+| 3 | TODO (e.g. Google sensitive scopes require verification) | TODO: checked official verification docs / consent screen UI | TODO | TODO |
+| 4 | TODO | TODO | TODO | TODO |
+| 5 | TODO | TODO | TODO | TODO |
+
+**Corrections made as a result:** TODO (list what you changed in the guides and why, or write "none found" honestly).
+
+**Could not verify:** TODO (e.g. actual Google verification turnaround, Slack Marketplace review time).
+
+### Live generation tests
+
+| App tried | Result | Notes (sources found, unknowns flagged, failures) |
+|---|---|---|
+| TODO (e.g. Notion) | TODO | TODO |
+| TODO (e.g. HubSpot) | TODO | TODO |
+| TODO (e.g. Linear) | TODO | TODO |
+
+If any of these haven't been run with real Tavily and Gemini keys, say so here instead of leaving it blank.
+
+## 7. Run locally
+
+Requirements: Node.js 20+ and pnpm (or npm).
+
+```bash
 pnpm install
 cp .env.example .env.local
-# Add server-only credentials to .env.local (never commit this file)
+# add server-only keys to .env.local (never commit this file)
 pnpm dev
 ```
 
-Open the local Vite URL. The Vite dev server mounts the same API handler used by Vercel. Curated guides work without credentials; live research needs only Tavily and Gemini keys.
-
-## Environment
+Curated guides and the directory work without keys. Live research needs Tavily and Gemini keys.
 
 | Variable | Required for | Notes |
-| --- | --- | --- |
-| `TAVILY_API_KEY` | Fresh research | Server-side Tavily search key. |
-| `GEMINI_API_KEY` | Fresh research | Server-side Google AI Studio key. |
-| `GEMINI_MODEL` | Optional | Defaults to `gemini-3.8-flash`, currently listed by Gemini docs with structured-output support. |
-Never use `VITE_` prefixes for private keys. Do not paste credentials into source files or commit `.env.local`.
+|---|---|---|
+| `TAVILY_API_KEY` | Live research | Server-side only |
+| `GEMINI_API_KEY` | Live research | Server-side only |
+| `GEMINI_MODEL` | Optional | **Check the current model list at https://ai.google.dev/gemini-api/docs/models and set a model that exists and supports structured output.** Do not rely on the default without confirming. |
 
-## Architecture and request flow
+Never use a `VITE_` prefix for secrets.
 
-- React, TypeScript, Vite, Tailwind, React Router, Lucide icons, and Zod.
-- `/api/guides` validates a name or public HTTP(S) URL, rate-limits the local function instance, and streams real status events.
-- Tavily searches provider OAuth requirements and Composio managed-auth context. Returned snippets and URLs are treated as untrusted candidate evidence.
-- Gemini receives a bounded set of search results and returns JSON structured to the guide schema. Zod validates the output, and the backend rejects citations that do not exactly match the research result IDs or that point to low-relevance results. Temporary Gemini 5xx responses are retried twice; if Gemini remains unavailable but relevant Tavily sources exist, the app returns a clearly labeled conservative source-first fallback with unknowns instead of inventing app-specific requirements.
-- The generated guide is returned to the browser and embedded in the share URL fragment. The fragment is not sent to the web server, so the link works without a database and can be opened by anyone who has it.
-- A local copy supports reopening guides in the same browser. Checklist progress is also stored locally and is not shared.
-
-Research results are not proof of source ownership. Generated source entries are labelled as retrieved search results; verify provider ownership and open the source before using the guidance. The model is explicitly asked not to invent scopes, review times, source URLs, or tests. An unsupported Composio path falls back to â€œIntegration path requires confirmation.â€
-
-## Share links
-
-Generated guide data is encoded into the URL fragment after `#guide=`. This makes a self-contained share link without a database. The link includes the researched guide content, so only share it with people who should see that information. There is no central guide history, link revocation, or server-side persistence in this take-home build.
-
-## Tests and build
-
-```sh
+```bash
 pnpm typecheck
-pnpm test
+pnpm test     # covers URL safety, schema validation, citation integrity
 pnpm build
 ```
 
-The current tests cover URL safety, structured guide validation, and citation integrity. A real unfamiliar-app request requires valid Tavily and Gemini credentials. Generate a guide at `/generate`, copy its share link, and open that full URL in another browser to verify the embedded guide data.
+### Deploy to Vercel
 
-## Deploy to Vercel
+Import the repo, add `TAVILY_API_KEY` and `GEMINI_API_KEY` as server-side environment variables, deploy, then open `/generate` and test a real app. No credentials are in this repository.
 
-Import the repository into Vercel or use the Vercel CLI. Vercel discovers the root `api/` TypeScript function. Add `TAVILY_API_KEY` and `GEMINI_API_KEY` as server-side environment variables, deploy, and verify `/api/guides` plus a generated share link. Do not set server keys as `VITE_*` variables.
+## 8. Limitations
 
-The source repository is [Shashank9535/apm_composio_outh-_assignment-](https://github.com/Shashank9535/apm_composio_outh-_assignment-). A Vercel deployment still requires importing the repository and adding the two server-only research keys. No credentials are included in the repository.
+- **Guides are only as good as their sources.** Curated guides are documentation-reviewed, not flow-tested, except where the verification log says otherwise.
+- **Live results are research output, not proof.** Retrieved sources are labelled as search results. Confirm provider ownership of each source before relying on it.
+- **Directory is a snapshot.** 118 entries as of 2026-10-28; it can drift from Composio's live list. Confirm the exact auth scheme in Composio before choosing a path.
+- **Rate limiting is per serverless instance** (in-memory, 5 requests/min). Not shared across instances; use a shared limiter or auth before public release.
+- **Share links can't be revoked** and carry the full guide content in the URL. Only share with people who should see it. Checklist progress is stored locally in the browser.
+- **Quotas and availability** of Tavily and Gemini affect live generation.
+- **Approval timelines** are shown as unknown unless documented.
 
-## First-principles product decision
+## 9. Sources used for curated guides
 
-An app connection has two jobs: the developer configures a provider integration, and each end user chooses whether to grant access. Composio managed OAuth can remove app registration and credential handling for supported schemes, but it does not remove the user's consent step or automatically meet branded-consent, custom-scope, quota, or review needs. OAuth Atlas therefore starts with â€œDoes managed auth fit this connection?â€ and routes the builder into a source-backed setup path only when needed.
+- Composio: [Managed Auth](https://docs.composio.dev/toolkits/managed-auth), [managed vs custom apps](https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app), [toolkit directory](https://composio.dev/toolkits)
+- GitHub: [Create an OAuth app](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app), [Authorize OAuth apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps), [Org app approval](https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/approving-oauth-apps-for-your-organization)
+- Slack: [Install with OAuth](https://docs.slack.dev/authentication/installing-with-oauth/), [App distribution](https://api.slack.com/docs/slack-apps-mgmt), [Marketplace review](https://api.slack.com/directory/app-review-guide)
+- Google: [OAuth overview](https://developers.google.com/identity/protocols/oauth2), [Scopes](https://developers.google.com/identity/protocols/oauth2/scopes), [Sensitive-scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification), [Policies](https://developers.google.com/identity/protocols/oauth2/policies)
+- Airtable: [Builder Hub](https://support.airtable.com/articles/9362950318-using-builder-hub-in-airtable), [OAuth overview](https://support.airtable.com/articles/6811769763-third-party-integrations-via-oauth-overview), [Disconnected integrations](https://support.airtable.com/articles/6412360049-troubleshooting-disconnected-oauth-integrations)
+- Asana: [OAuth](https://developers.asana.com/docs/oauth), [Scopes](https://developers.asana.com/docs/oauth-scopes), [Share your app](https://developers.asana.com/docs/share-your-app), [Publish your app](https://developers.asana.com/docs/publish-your-app)
+- Services: [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search), [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output), [Vercel Node.js functions](https://vercel.com/docs/functions/runtimes/node-js)
 
-The directory is a dated discovery snapshot from Composio's managed-auth page, not 118 complete setup guides. The live page reported 118 managed-OAuth entries when checked on 2026-10-28. All 118 catalog entries map to Composio toolkit slugs and logo endpoints; logos are served by Composio and may fall back to a letter mark if an image is unavailable. This deliberately excludes Composio toolkits that use only API keys, bearer tokens, Basic auth, or no authentication. Five apps (GitHub, Slack, Google, Airtable, and Asana) have detailed reviewed guides; other listed apps can be sent through live research. On the guide page, a private in-browser milestone trail helps the builder track setup progress. It does not award points for skipping consent, scope review, or provider approval. The source page's directory changes over time, so verify current auth schemes and exact scopes in Composio before launch.
-## Product decisions and evidence
+## 10. What I'd do next
 
-The core problem is uncertainty before the OAuth build begins. The guide places the integration path, hands-on effort, external waiting, blockers, next actions, and evidence before lengthy implementation detail. Setup time remains unknown unless a source supports it or an estimate is explicitly identified as an inference. Provider approval timing is unknown unless documentation describes a relevant review path.
-
-The GitHub, Slack, Google, Airtable, and Asana starter guides link directly to official sources and are labeled documentation-reviewed. No provider console was accessed; no OAuth app or credentials were created; no OAuth flow or provider approval was tested. Provider setup requirements were checked against these official documentation sources:
-
-- Composio: [Managed Auth](https://docs.composio.dev/toolkits/managed-auth), [managed vs custom apps](https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app), and [toolkit directory](https://composio.dev/toolkits).
-- GitHub: [Create an OAuth app](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app), [Authorize OAuth apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps), and [Organization app approval](https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/approving-oauth-apps-for-your-organization).
-- Slack: [Install with OAuth](https://docs.slack.dev/authentication/installing-with-oauth/), [App distribution](https://api.slack.com/docs/slack-apps-mgmt), and [Marketplace app review](https://api.slack.com/directory/app-review-guide).
-- Airtable: [Builder Hub setup](https://support.airtable.com/articles/9362950318-using-builder-hub-in-airtable), [OAuth overview](https://support.airtable.com/articles/6811769763-third-party-integrations-via-oauth-overview), and [refresh-token troubleshooting](https://support.airtable.com/articles/6412360049-troubleshooting-disconnected-oauth-integrations).
-- Asana: [OAuth setup](https://developers.asana.com/docs/oauth), [OAuth scopes](https://developers.asana.com/docs/oauth-scopes), [Share your app](https://developers.asana.com/docs/share-your-app), and [Publish your app](https://developers.asana.com/docs/publish-your-app).
-- Google: [OAuth overview](https://developers.google.com/identity/protocols/oauth2), [scope categories](https://developers.google.com/identity/protocols/oauth2/scopes), [sensitive-scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification), and [OAuth policies](https://developers.google.com/identity/protocols/oauth2/policies).
-- Service contracts: [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search), [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output), [Gemini models](https://ai.google.dev/gemini-api/docs/models), and [Vercel Node.js functions](https://vercel.com/docs/functions/runtimes/node-js).
-
-## Security and current limitations
-
-- User-supplied URLs must be public HTTP(S); localhost, private IP addresses, credentials in URLs, and local/internal hostnames are rejected. The service searches the URL string; it does not fetch arbitrary user URLs.
-- An in-memory per-instance cap limits each runtime process to five requests per minute. Serverless instances do not share counters; add a shared rate limiter or authenticated access before broad public release.
-- Tavily/Gemini quotas and model availability vary by account and plan. Check provider usage pages; the application does not assume a free quota is unlimited. Provider calls have bounded timeouts and result sizes.
-- No Tavily or Gemini secrets were present in the workspace environment, so a real live research request could not be exercised here.
-- Share links include a base64url-encoded guide in the URL fragment. This avoids database setup but makes links longer and cannot be revoked centrally; a future hosted product should move shared guides to an access-controlled store.
-- The managed-auth catalog is a dated 118-app snapshot; it may drift from the dynamic Composio list. There are three full guides, not 118 full guides. Verify each app's exact managed auth scheme in the toolkit/API before choosing the integration path.
-
-## Demonstration flow
-
-1. Open the homepage, then search GitHub under Explore.
-2. Inspect a provider guideâ€™s evidence, effort, approval dependency, and blocker section.
-3. Submit an unfamiliar public app name or website under Generate.
-4. Watch server-reported research stages; if evidence or credentials are insufficient, read the explicit error rather than a fabricated guide.
-5. Copy the generated share link and open it in another browser to confirm that the guide travels with the link.
-
+1. **Test real flows.** Create OAuth apps for a sample of providers and record actual time, steps, and surprises; fold corrections back into the guides.
+2. **Improve trust.** Add "last verified" dates, flag stale or uncertain guidance, and handle generation failures more gracefully.
+3. **Build for repeat use.** Persistent guide storage with access control, version history, shared rate limiting, and a larger library, added only as fast as evidence quality allows.
