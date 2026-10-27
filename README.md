@@ -62,7 +62,7 @@ The current tests cover URL safety, structured guide validation, and citation in
 
 Import the repository into Vercel or use the Vercel CLI. Vercel discovers the root `api/` TypeScript functions. Add the server-only variables above in the project environment settings, run a production deployment, and verify both `/api/guides` and a saved `/guides/:id` URL. Do not set server keys as `VITE_*` variables.
 
-This workspace did not have GitHub or Vercel CLI authentication configured. No remote repository or deployment has been created from this checkout.
+The source repository is [Shashank9535/apm_composio_outh-_assignment-](https://github.com/Shashank9535/apm_composio_outh-_assignment-). A Vercel deployment still requires importing the repository and adding the server-only variables listed above. No credentials are included in the repository.
 
 ## First-principles product decision
 
