@@ -1,0 +1,6 @@
+.appmark.provider-logo{display:grid;place-items:center;overflow:hidden;background:rgba(255,255,255,.96);color:#0b1b25;border:1px solid rgba(255,255,255,.32);border-radius:12px}
+.provider-logo img{display:block;width:68%;height:68%;object-fit:contain}
+.provider-logo>span{font:500 14px var(--font-body)}
+.guide-logo{width:52px;height:52px;border-radius:14px}
+.directory-card .provider-logo{width:42px;height:42px}
+
