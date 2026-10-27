@@ -15,19 +15,11 @@ function requiredEnv(key: string) {
   if (!value) fail('CONFIG_MISSING', `Server configuration is missing ${key}. Add it to the server environment to enable live research.`, 503);
   return value;
 }
-function databaseConfig() {
-  return {
-    supabaseUrl: requiredEnv('SUPABASE_URL').replace(/\/$/, ''),
-    supabaseKey: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || fail('CONFIG_MISSING', 'Server configuration is missing SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY).', 503)
-  };
-}
 function config() {
-  const db = databaseConfig();
   return {
     tavily: requiredEnv('TAVILY_API_KEY'),
     gemini: requiredEnv('GEMINI_API_KEY'),
-    model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
-    ...db
+    model: process.env.GEMINI_MODEL || 'gemini-3.8-flash'
   };
 }
 function rateLimit(ip = 'local') {
@@ -35,34 +27,6 @@ function rateLimit(ip = 'local') {
   if (recent.length >= 5) fail('RATE_LIMITED', 'Too many research requests from this address. Wait a minute and try again.', 429);
   if (rateWindow.size > 5000) for (const [key, timestamps] of rateWindow) if (!timestamps.some((time) => now - time < 60_000)) rateWindow.delete(key);
   recent.push(now); rateWindow.set(ip, recent);
-}
-
-async function supabaseRequest<T>(c: ReturnType<typeof databaseConfig>, path: string, init?: RequestInit): Promise<T> {
-  const supabaseHeaders: Record<string, string> = { apikey: c.supabaseKey, 'Content-Type': 'application/json', ...init?.headers as Record<string, string> };
-  // Current sb_secret keys are API keys, not JWTs; legacy service_role keys remain JWTs.
-  if (!c.supabaseKey.startsWith('sb_secret_')) supabaseHeaders.Authorization = `Bearer ${c.supabaseKey}`;
-  const response = await fetch(`${c.supabaseUrl}/rest/v1/${path}`, {
-    ...init,
-    headers: supabaseHeaders
-  });
-  if (!response.ok) {
-    const status = response.status;
-    if (status === 404) fail('DATABASE_SCHEMA_MISSING', 'The Supabase guides table is not available. Apply the included migration, then retry.', 503);
-    fail('DATABASE_ERROR', status === 401 || status === 403 ? 'Supabase rejected the server database key. Check its project and permissions.' : 'Supabase could not complete the guide request. Check the database and try again.', 503);
-  }
-  if (response.status === 204) return undefined as T;
-  return await response.json() as T;
-}
-
-async function cachedGuide(c: ReturnType<typeof databaseConfig>, slug: string): Promise<OAuthGuide | null> {
-  const rows = await supabaseRequest<Array<{ guide_json: OAuthGuide }>>(c, `guides?slug=eq.${encodeURIComponent(slug)}&is_public=eq.true&select=guide_json&limit=1`);
-  return rows[0]?.guide_json || null;
-}
-async function persistGuide(c: ReturnType<typeof config>, guide: OAuthGuide) {
-  await supabaseRequest(c, 'guides', {
-    method: 'POST', headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({ id: guide.id, slug: guide.slug, app_name: guide.app_name, app_url: guide.app_url, guide_json: guide, sources_json: guide.sources, generation_status: 'complete', is_public: true })
-  });
 }
 
 function domain(url: string) { try { return new URL(url).hostname; } catch { return ''; } }
@@ -131,9 +95,9 @@ async function generateWithGemini(c: ReturnType<typeof config>, appName: string,
   const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('');
   if (!text) fail('GEMINI_EMPTY', 'Gemini returned no guide content. The research results may be insufficient.', 422);
   let json: unknown;
-  try { json = JSON.parse(text); } catch { fail('INVALID_MODEL_OUTPUT', 'Gemini returned malformed structured content. No guide was saved.', 422); }
+  try { json = JSON.parse(text); } catch { fail('INVALID_MODEL_OUTPUT', 'Gemini returned malformed structured content. No guide was created.', 422); }
   const parsed = generatedContentSchema.safeParse(json);
-  if (!parsed.success) fail('INVALID_MODEL_OUTPUT', 'The generated guide did not pass content validation. No guide was saved.', 422);
+  if (!parsed.success) fail('INVALID_MODEL_OUTPUT', 'The generated guide did not pass content validation. No guide was created.', 422);
   return parsed.data;
 }
 
@@ -153,9 +117,6 @@ export async function streamGuide(input: unknown, send: Progress, ip = 'local') 
     const seed = seedGuides.find((guide) => guide.app_name.toLowerCase() === app.appName.toLowerCase() || (app.appUrl && new URL(guide.app_url!).hostname === new URL(app.appUrl).hostname));
     if (seed) { send({ type: 'cached', guide: seed, route: guidePath(seed) }); return; }
     rateLimit(ip);
-    const db = databaseConfig();
-    const existing = await cachedGuide(db, slug);
-    if (existing) { send({ type: 'cached', guide: existing, route: `/guides/${existing.id}` }); return; }
     const c = config();
     send({ type: 'stage', stage: 'search', state: 'started' });
     const searchA = await tavilySearch(c, `${app.appName} official developer documentation OAuth app registration scopes verification approval${app.appUrl ? ` site:${new URL(app.appUrl).hostname}` : ''}`);
@@ -188,7 +149,7 @@ export async function streamGuide(input: unknown, send: Progress, ip = 'local') 
     const sources = sourcesFromContent(content, candidates);
     const sourceMap = new Set(sources.map((source) => source.id));
     const allEvidence = [...content.setup_steps.flatMap((item) => item.evidence_ids), ...content.blockers.flatMap((item) => item.evidence_ids)];
-    if (allEvidence.some((id) => !sourceMap.has(id))) fail('INVALID_MODEL_OUTPUT', 'The guide included a claim without a selected source. No guide was saved.', 422);
+    if (allEvidence.some((id) => !sourceMap.has(id))) fail('INVALID_MODEL_OUTPUT', 'The guide included a claim without a selected source. No guide was created.', 422);
     const allowedSourceUrls = new Set(candidates.map((candidate) => candidate.url));
     // Keep the submitted homepage only; a search result URL may be a docs or third-party page.
     const appUrl = app.appUrl;
@@ -206,24 +167,14 @@ export async function streamGuide(input: unknown, send: Progress, ip = 'local') 
       generated_at: new Date().toISOString(), last_verified_at: null, is_seed: false
     };
     send({ type: 'stage', stage: 'validate', state: 'complete' });
-    send({ type: 'stage', stage: 'persist', state: 'started' });
-    await persistGuide(c, guide);
-    send({ type: 'stage', stage: 'persist', state: 'complete' });
+    send({ type: 'stage', stage: 'share', state: 'started' });
+    send({ type: 'stage', stage: 'share', state: 'complete' });
     send({ type: 'complete', guide });
   } catch (error) {
     const e = error as Error & { code?: string; status?: number };
     const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
-    send({ type: 'error', code: e.code || (timedOut ? 'REQUEST_TIMEOUT' : 'RESEARCH_FAILED'), message: timedOut ? 'A research provider took too long to respond. No guide was saved; retry in a moment.' : e.message || 'Research failed. No guide was saved.' });
+    send({ type: 'error', code: e.code || (timedOut ? 'REQUEST_TIMEOUT' : 'RESEARCH_FAILED'), message: timedOut ? 'A research provider took too long to respond. No guide was created; retry in a moment.' : e.message || 'Research failed. No guide was created.' });
   }
-}
-
-export async function getGuide(id: string): Promise<{ status: number; body: unknown }> {
-  if (!/^[a-z0-9-]{3,80}$/i.test(id) && !/^[0-9a-f-]{36}$/i.test(id)) return { status: 400, body: { error: 'Invalid guide identifier.' } };
-  try {
-    const rows = await supabaseRequest<Array<{ id: string; guide_json: OAuthGuide }>>(databaseConfig(), `guides?id=eq.${encodeURIComponent(id)}&is_public=eq.true&select=id,guide_json&limit=1`);
-    if (!rows[0]) return { status: 404, body: { error: 'This shared guide could not be found.' } };
-    return { status: 200, body: { guide: rows[0].guide_json } };
-  } catch { return { status: 503, body: { error: 'Shared guides are not available right now. Check server database configuration.' } }; }
 }
 
 
